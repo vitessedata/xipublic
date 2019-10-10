@@ -12,6 +12,8 @@
 #include "utils.h"
 #include "xlog.h"
 
+#define DEV_NAME "xilinx_u200_xdma_201830_1"
+
 using namespace std;
 using namespace xdb;
 
@@ -48,7 +50,7 @@ void *runxre(void *arg)
 #ifdef VVV_INIT_IN_THREAD
 	// Init the FPGA - one time cos
 	timer.start();
-	if (! XRE::InitFpga ("regex_aws_hw.xclbin", "regex_aws")) {
+	if (! XRE::Init("xre_hw.xclbin", "xre", DEV_NAME)) {
 		std::cout << "FPGA Init failed. " << std::endl; 
 		return 0;
 	}
@@ -77,8 +79,10 @@ void *runxre(void *arg)
 				string outf_ith = output_file + "." + std::to_string(i);
 				std::cout << "Run xre " << i << "-th time, output to " << outf_ith << std::endl;
 				// regex compiler and load instructions
+				XRE xre;
+				
 				timer.start();
-				XRE xre(regex_str);
+				xre.CompileRegex(regex_str);
 				if (!xre.ok()) {
 					L_(lerror) << "XRE Invalid regex " << regex_str;
 					continue;
@@ -101,7 +105,7 @@ void *runxre(void *arg)
 
 #ifdef VVV_INIT_IN_THREAD
 	timer.start();
-	XRE::EndFpga();
+	XRE::End();
 	t_fpga += timer.duration();
 	std::cout << "FPGA Init/Deinit total " << t_fpga << " timeunit." << std::endl;
 #endif
@@ -155,7 +159,7 @@ int main (int argc, char* argv[]) {
 	// Init the FPGA - one time cost
 	timer.start();
 #ifndef VVV_INIT_IN_THREAD
-	if (! XRE::InitFpga ("regex_aws_hw.xclbin", "regex_aws")) {
+	if (! XRE::Init("xre_hw.xclbin", "xre", DEV_NAME)) {
 		L_(lerror) << "FPGA Open failed";
 		return 0;
 	}
@@ -188,7 +192,7 @@ int main (int argc, char* argv[]) {
 
 	timer.start();
 #ifndef VVV_INIT_IN_THREAD
-	XRE::EndFpga();
+	XRE::End();
 #endif
 	timer.end();
 	t_fpga += timer.duration();

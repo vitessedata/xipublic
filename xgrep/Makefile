@@ -3,10 +3,11 @@ OBJS = $(CXXFILES:.cpp=.o)
 EXEC = test1
 
 CXXFLAGS += -mavx -g -O2 -Wall -std=c++11
+# -mavx -fabi-version=$(ABI)
+# CXXFLAGS += -I$(XGREP_DIR)/src -I$(TOOLCHAIN_DIR)/installed/include
+CXXFLAGS += -I$(XGREP_DIR)/src -I$(TOOLCHAIN_DIR)/installed/include
 
-CXXFLAGS += -I$(XGREP_DIR)/include
-
-LDLIBS += -L$(XILINX_XRT)/lib -L$(XGREP_DIR)/obj -L$(HOME)/data/p/toolchain/installed/lib \
+LDLIBS += -L$(XILINX_XRT)/lib -L$(XGREP_DIR)/bin -L$(TOOLCHAIN_DIR)/installed/lib \
 		  -pthread -lxilinxopencl -lxre -lOpenCL -lre2
 
 #
