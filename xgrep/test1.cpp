@@ -17,7 +17,6 @@
 using namespace std;
 using namespace xdb;
 
-#define VVV_INIT_IN_THREAD
 const int nthread = 1;
 
 void printUsage(const char *msg=nullptr) {
@@ -46,17 +45,6 @@ void *runxre(void *arg)
 {
 	thctxt_t *ctxt = (thctxt_t *) arg;
 	XTimer timer;
-
-#ifdef VVV_INIT_IN_THREAD
-	// Init the FPGA - one time cos
-	timer.start();
-	if (! XRE::Init("xre_hw.xclbin", "xre", DEV_NAME)) {
-		std::cout << "FPGA Init failed. " << std::endl; 
-		return 0;
-	}
-	timer.end();
-	double t_fpga = timer.duration();
-#endif
 
 	std::cout << "Thread: " << ctxt->myid 
 		<< " work size " << ctxt->regex_patterns->size() << std::endl;
@@ -103,13 +91,6 @@ void *runxre(void *arg)
 		}
 	}
 
-#ifdef VVV_INIT_IN_THREAD
-	timer.start();
-	XRE::End();
-	t_fpga += timer.duration();
-	std::cout << "FPGA Init/Deinit total " << t_fpga << " timeunit." << std::endl;
-#endif
-
 	return 0;
 }
 
@@ -131,7 +112,7 @@ int main (int argc, char* argv[]) {
 
 	// Now execute the regex 
 	std::vector<std::string> regex_patterns = {".*final.*"}; 
-	std::vector<std::string> input_files = {"nation.tbl"};
+	std::vector<std::string> input_files = {"lineitem.tbl"};
 	if (inp.getCmdOption("-rx",optValue)) {
 		regex_patterns.resize(1);
 		regex_patterns[0] = optValue;
@@ -158,12 +139,11 @@ int main (int argc, char* argv[]) {
 
 	// Init the FPGA - one time cost
 	timer.start();
-#ifndef VVV_INIT_IN_THREAD
-	if (! XRE::Init("xre_hw.xclbin", "xre", DEV_NAME)) {
+	XRE::pingpong = true;
+	if (! XRE::Init("xre_hw.xclbin", "xre")) { 
 		L_(lerror) << "FPGA Open failed";
 		return 0;
 	}
-#endif
 	timer.end();
 	double t_fpga = timer.duration();
 
@@ -191,9 +171,7 @@ int main (int argc, char* argv[]) {
 	}
 
 	timer.start();
-#ifndef VVV_INIT_IN_THREAD
 	XRE::End();
-#endif
 	timer.end();
 	t_fpga += timer.duration();
 

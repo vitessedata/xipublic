@@ -1,6 +1,7 @@
 TOP_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 export TOP_DIR
 export XGREP_DIR=$HOME/xilinx/xre 
+export XXXX=$HOME/p/xilinx/xxx
 
 rm -f ./xre_hw.xclbin
 ln -s $XGREP_DIR/xre_hw.xclbin .

@@ -4,10 +4,9 @@ EXEC = test1
 
 CXXFLAGS += -mavx -g -O2 -Wall -std=c++11
 # -mavx -fabi-version=$(ABI)
-# CXXFLAGS += -I$(XGREP_DIR)/src -I$(TOOLCHAIN_DIR)/installed/include
-CXXFLAGS += -I$(XGREP_DIR)/src -I$(TOOLCHAIN_DIR)/installed/include
+CXXFLAGS += -I$(XGREP_DIR)/src -I$(XXXX)/installed/include
 
-LDLIBS += -L$(XILINX_XRT)/lib -L$(XGREP_DIR)/bin -L$(TOOLCHAIN_DIR)/installed/lib \
+LDLIBS += -L$(XILINX_XRT)/lib -L$(XGREP_DIR)/bin -L$(XXXX)/installed/lib \
 		  -pthread -lxilinxopencl -lxre -lOpenCL -lre2
 
 #

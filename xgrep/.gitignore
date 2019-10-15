@@ -1,0 +1,6 @@
+*.log
+*.log.?
+regex_testdata/
+*.xclbin
+test1
+test1.o
