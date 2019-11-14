@@ -13,11 +13,13 @@
 #include "xlog.h"
 
 #define DEV_NAME "xilinx_u200_xdma_201830_1"
+#define KERNEL_NAME "xre_hw_7k.xclbin"
+#define DATA_DIR "/home/ftian/data/staging/tpch/scale-10/"
 
 using namespace std;
 using namespace xdb;
 
-const int nthread = 1;
+static int nthread = 3;
 
 void printUsage(const char *msg=nullptr) {
 	if (msg) printf("%s \n",msg);
@@ -63,31 +65,32 @@ void *runxre(void *arg)
 			(*ctxt->xre_results)[idx] = 0; 
 			(*ctxt->xre_exec_times)[idx] = 0;
 
-			for (int i = 0; i < 10; i++) {
-				string outf_ith = output_file + "." + std::to_string(i);
-				std::cout << "Run xre " << i << "-th time, output to " << outf_ith << std::endl;
-				// regex compiler and load instructions
-				XRE xre;
+			// regex compiler and load instructions
+			XRE::XREOpt xre_opt;
+			xre_opt.match_count_only = false;
+			xre_opt.row_delimiter = '\n';
+			xre_opt.row_delimiter_escape_active = false;
+
+			XRE xre(&xre_opt);
 				
-				timer.start();
-				xre.CompileRegex(regex_str);
-				if (!xre.ok()) {
-					L_(lerror) << "XRE Invalid regex " << regex_str;
-					continue;
-				}
-				// execute regex
-				if (!xre.FullMatch(input_file, outf_ith)) { 
-					std::cout << "FullMatch fail? What does this mean?" << std::endl;
-					continue;
-				}
-				if (!xre.ok()) {
-					L_(lerror) << "Full match ran with error";
-					continue;
-				}    
-				timer.end();
-				(*ctxt->xre_results)[idx] = 1; 
-				(*ctxt->xre_exec_times)[idx] = timer.duration();
+			timer.start();
+			xre.CompileRegex(regex_str);
+			if (!xre.ok()) {
+				L_(lerror) << "XRE Invalid regex " << regex_str;
+				continue;
 			}
+			// execute regex
+			if (!xre.FullMatch(input_file, output_file)) { 
+				std::cout << "FullMatch fail? What does this mean?" << std::endl;
+				continue;
+			}
+			if (!xre.ok()) {
+				L_(lerror) << "Full match ran with error";
+				continue;
+			}    
+			timer.end();
+			(*ctxt->xre_results)[idx] = 1; 
+			(*ctxt->xre_exec_times)[idx] = timer.duration();
 		}
 	}
 
@@ -104,15 +107,26 @@ int main (int argc, char* argv[]) {
 		return 0;
 	}
 
-	std::string testfile_dir("./regex_testdata/");
+	if (inp.getCmdOption("-1")){
+		nthread = 1;
+	}
+
+	std::string testfile_dir(DATA_DIR);
 	if (inp.getCmdOption("-tf",optValue)) {
 		testfile_dir = optValue;
 	}
 	std::cout << "Using dir " << testfile_dir << std::endl;
 
 	// Now execute the regex 
-	std::vector<std::string> regex_patterns = {".*final.*"}; 
-	std::vector<std::string> input_files = {"lineitem.tbl"};
+	std::vector<std::string> regex_patterns = {
+		".*final.*", ".*final.*", ".*final.*"
+	}; 
+	std::vector<std::string> input_files = {
+		"seg-0/lineitem.tbl.1", 
+		"seg-1/lineitem.tbl.2", 
+		"seg-2/lineitem.tbl.3" 
+	};
+
 	if (inp.getCmdOption("-rx",optValue)) {
 		regex_patterns.resize(1);
 		regex_patterns[0] = optValue;
@@ -122,7 +136,6 @@ int main (int argc, char* argv[]) {
 		input_files.resize(1);
 		input_files[0] = optValue;
 	}
-	std::cout << "Run regex on " << input_files.size() << " files, first is " << input_files[0] << " regex is " << regex_patterns[0] << std::endl;
 
 	if (!initLogger("run_tests.log", linfo)) {
 		std::cout << "Error: Cannot open logfile for writing" << endl;
@@ -137,10 +150,20 @@ int main (int argc, char* argv[]) {
 	std::vector<double> xre_exec_times;
 	xre_exec_times.resize(total_tests);  
 
-	// Init the FPGA - one time cost
-	timer.start();
+	// Init the FPGA - one time cost.   
+	XRE::threaded_kernels = nthread > 1; 
 	XRE::pingpong = true;
-	if (! XRE::Init("xre_hw.xclbin", "xre")) { 
+	XRE::xclbin_name = KERNEL_NAME; 
+	XRE::device_name = DEV_NAME;
+	// Run multi threaded kernel, 
+	if (nthread > 1) {
+		XRE::setKernels(nthread, "xre", true);
+	} else {
+		XRE::setKernels(1, "xre", false); 
+	}
+
+	timer.start();
+	if (! XRE::Init()) { 
 		L_(lerror) << "FPGA Open failed";
 		return 0;
 	}

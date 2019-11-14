@@ -3,8 +3,8 @@ export TOP_DIR
 export XGREP_DIR=$HOME/xilinx/xre 
 export XXXX=$HOME/p/xilinx/xxx
 
-rm -f ./xre_hw.xclbin
-ln -s $XGREP_DIR/xre_hw.xclbin .
+rm -f ./xre_*.xclbin
+ln -s $XGREP_DIR/xre_hw_7k.xclbin .
 
 . /opt/xilinx/xrt/setup.sh
 . ~/xilinx/Vivado/2019.1/settings64.sh
