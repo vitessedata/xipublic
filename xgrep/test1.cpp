@@ -7,6 +7,11 @@
 #include <algorithm>
 #include <iomanip> 
 
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <unistd.h>
+
 #include "re2/re2.h"
 #include "xre.h"
 #include "utils.h"
@@ -42,6 +47,55 @@ struct thctxt_t {
 	std::vector<int> *xre_results;
 	std::vector<double> *xre_exec_times;
 };
+
+struct auto_fd_t {
+	int fd;
+	auto_fd_t(): fd(-1) {}
+	~auto_fd_t() {
+		if (fd >= 0) {
+			::close(fd);
+		}
+	}
+	int open_r(const char* fn) { 
+		fd = ::open(fn, O_RDONLY); 
+		return fd;
+	}
+	int open_w(const char* fn) { 
+		fd = ::open(fn, O_RDWR | O_CREAT | O_TRUNC); 
+		return fd;
+	}
+};
+
+static int read_fn(void *hndl, void *buf, size_t bufsz, char *errmsg, int errmsgsz)
+{
+	auto_fd_t *afd = (auto_fd_t *) hndl;
+	int n = ::read(afd->fd, buf, bufsz);
+	if (-1 == n) {
+		if (errmsg) {
+			snprintf(errmsg, errmsgsz, "read error: %s", strerror(errno));
+		}
+	}
+	return n;
+}
+
+static int write_fn(void *hndl, void *buf, size_t bufsz, char *errmsg, int errmsgsz)
+{
+	auto_fd_t *afd = (auto_fd_t *) hndl;
+	char *cbuf = (char *) buf;
+	size_t wsz = 0;
+
+	while (wsz < bufsz) {
+		int n = ::write(afd->fd, cbuf+wsz, bufsz-wsz);
+		if (-1 == n) {
+			if (errmsg) {
+				snprintf(errmsg, errmsgsz, "write error: %s", strerror(errno));
+			}
+			return -1;
+		}
+		wsz += n;
+	}
+	return wsz;
+}
 
 void *runxre(void *arg)
 {
@@ -79,8 +133,20 @@ void *runxre(void *arg)
 				L_(lerror) << "XRE Invalid regex " << regex_str;
 				continue;
 			}
+
+			auto_fd_t rfd;
+			auto_fd_t wfd;
+			if (rfd.open_r(input_file.c_str()) < 0) {
+				L_(lerror) << "Cannot open input file " << input_file;
+				continue;
+			}
+			if (wfd.open_w(output_file.c_str()) < 0) {
+				L_(lerror) << "Cannot open output file " << input_file;
+				continue;
+			}
+
 			// execute regex
-			if (!xre.FullMatch(input_file, output_file)) { 
+			if (!xre.FullMatch(read_fn, write_fn, (void *) &rfd, (void *) &wfd)) { 
 				std::cout << "FullMatch fail? What does this mean?" << std::endl;
 				continue;
 			}
@@ -159,7 +225,7 @@ int main (int argc, char* argv[]) {
 	if (nthread > 1) {
 		XRE::setKernels(nthread, "xre", true);
 	} else {
-		XRE::setKernels(1, "xre", false); 
+		XRE::setKernels(1, "xre", true); 
 	}
 
 	timer.start();
